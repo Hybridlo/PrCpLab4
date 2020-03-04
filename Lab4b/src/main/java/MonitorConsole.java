@@ -9,7 +9,7 @@ public class MonitorConsole extends Thread {
     @Override
     public void run() {
         while(!Thread.interrupted()) {
-            int [][] gardenState = {{}};
+            int [][] gardenState;
 
             try {
                 Thread.sleep(100);
@@ -17,6 +17,7 @@ public class MonitorConsole extends Thread {
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 Thread.currentThread().interrupt();
+                continue;
             }
 
             for (int[] row : gardenState) {

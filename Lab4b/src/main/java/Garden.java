@@ -1,5 +1,6 @@
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Random;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class Garden {
 
@@ -11,64 +12,49 @@ public class Garden {
             {1, 1, 1, 1, 1}
     };
 
-    private int readers = 0;
-    private int writers = 0;
-    private int writeRequests = 0;
+    private ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    int[][] getGardenAndLock() throws InterruptedException {
-        lockWrite();
+    void setFirstDeadToAlive() {
+        lock.writeLock().lock();
 
-        return garden;
+        boolean changed = false;
+
+        for (int i = 0; i < garden.length; i++) {
+            for (int j = 0; j < garden[i].length; j++) {
+                if (garden[i][j] == 0) {
+                    garden[i][j] = 1;
+                    changed = true;
+                    break;
+                }
+            }
+
+            if (changed)
+                break;
+        }
+
+        lock.writeLock().unlock();
     }
 
-    void setStateAndUnlock(int row, int column, int state) {
+    void flipRandomState() {
+        lock.writeLock().lock();
 
-        garden[row][column] = state;
+        Random random = new Random();
 
-        unlockWrite();
+        int i = random.nextInt(garden.length);
+        int j = random.nextInt(garden[i].length);
+
+        garden[i][j] = 1 - garden[i][j];
+
+        lock.writeLock().unlock();
     }
 
-    void setAliveAndUnlock(int row, int column)  {
-
-        garden[row][column] = 1;
-
-        unlockWrite();
-    }
-
-    int[][] getGarden() throws InterruptedException {
-        lockRead();
+    int[][] getGarden() {
+        lock.readLock().lock();
 
         int[][] result = garden;
 
-        unlockRead();
+        lock.readLock().unlock();
 
         return result;
-    }
-
-    private synchronized void lockRead() throws InterruptedException{
-        while(writers > 0 || writeRequests > 0){
-            wait();
-        }
-        readers++;
-    }
-
-    private synchronized void unlockRead() {
-        readers--;
-        notifyAll();
-    }
-
-    private synchronized void lockWrite() throws InterruptedException{
-        writeRequests++;
-
-        while(readers > 0 || writers > 0){
-            wait();
-        }
-        writeRequests--;
-        writers++;
-    }
-
-    private synchronized void unlockWrite() {
-        writers--;
-        notifyAll();
     }
 }

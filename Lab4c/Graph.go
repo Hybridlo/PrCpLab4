@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"time"
+	"math/rand"
+	"strconv"
 )
 
 type Way struct {
@@ -120,85 +123,177 @@ func (g *GraphManager) getNode(number int) (int, *Node) {
 	return 0, nil
 }
 
-func (g *GraphManager) addNode(number int) {
-	g.RUnlock()
-	
-	var newNode Node
-	newNode.number = number
+func (g *GraphManager) addOrRemoveNode() {
 
 	g.Lock()
 	defer g.Unlock()
 
-	g.nodes = append(g.nodes, &newNode)
-}
+	nodes := g.nodes
 
-func (g *GraphManager) removeNode(number int) {
-	g.RUnlock()
-	g.Lock()
-	defer g.Unlock()
+	s := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(s)
 
-	i, rmNode := g.getNode(number)
-	for _, w := range rmNode.ways {
-		w.getOther(rmNode).removeWay(w)
+	do := r.Intn(2)
+
+	switch do {
+	case 0:
+		if len(nodes) < 5 {
+			return
+		}
+
+		i_rand := r.Intn(len(nodes))
+		node := nodes[i_rand]
+
+		for _, w := range node.ways {
+			w.getOther(node).removeWay(w)
+		}
+		
+		g.nodes = append(g.nodes[:i_rand], g.nodes[i_rand+1:]...)
+
+		fmt.Printf("Remove node " + strconv.Itoa(node.number) + "\n")
+	case 1:
+		max := 0
+		for _, n := range nodes {
+			if n.number > max {
+				max = n.number
+			}
+		}
+		max = max + 1
+		
+		var newNode Node
+		newNode.number = max
+
+		g.nodes = append(g.nodes, &newNode)
+
+		fmt.Printf("Add node " + strconv.Itoa(max) + "\n")
 	}
-	
-	g.nodes = append(g.nodes[:i], g.nodes[i+1:]...)
 }
 
-func (g *GraphManager) addWay(a int, b int, weight int) {
-	g.RUnlock()
+func (g *GraphManager) addOrRemoveWay() {
 	g.Lock()
 	defer g.Unlock()
 
-	_, aNode := g.getNode(a)
-	_, bNode := g.getNode(b)
+	nodes := g.nodes
 
-	way := NewWay(aNode, bNode, weight)
+	if len(nodes) < 2 {
+		return
+	}
 
-	aNode.ways = append(aNode.ways, &way)
-	bNode.ways = append(bNode.ways, &way)
+	s := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(s)
+
+	do := r.Intn(2)
+
+	switch do {
+	case 0:
+		i_rand := r.Intn(len(nodes))
+		node := nodes[i_rand]
+
+		if len(node.ways) == 0 {
+			return
+		}
+
+		i_rand_2 := r.Intn(len(node.ways))
+		way := node.ways[i_rand_2]
+
+		node.removeWay(way)
+		way.getOther(node).removeWay(way)
+		
+		fmt.Printf("Remove way from node " + strconv.Itoa(node.number) + " to " + strconv.Itoa(way.getOther(node).number) + "\n")
+	case 1:
+		i_rand := r.Intn(len(nodes))
+		if len(nodes[i_rand].ways) + 1 == len(nodes) {
+			return
+		}
+		i_rand_2 := r.Intn(len(nodes))
+		wayExists := false
+
+		for _, w := range nodes[i_rand].ways {
+			otherNode := w.getOther(nodes[i_rand])
+			if nodes[i_rand_2] == otherNode {
+				wayExists = true
+			}
+		}
+
+		for i_rand == i_rand_2 || wayExists {
+			wayExists = false
+			i_rand_2 = r.Intn(len(nodes))
+
+			for _, w := range nodes[i_rand].ways {
+				otherNode := w.getOther(nodes[i_rand])
+				if nodes[i_rand_2] == otherNode {
+					wayExists = true
+				}
+			}
+		}
+		i_rand_3 := r.Intn(10) + 1
+
+		way := NewWay(nodes[i_rand], nodes[i_rand_2], i_rand_3)
+
+		nodes[i_rand].ways = append(nodes[i_rand].ways, &way)
+		nodes[i_rand_2].ways = append(nodes[i_rand_2].ways, &way)
+
+		fmt.Printf("Add way from node " + strconv.Itoa(nodes[i_rand].number) + " to " + strconv.Itoa(nodes[i_rand_2].number) + " cost " + strconv.Itoa(i_rand_3) + "\n")
+	}
 }
 
-func (g *GraphManager) removeWay(a int, b int) {
-	g.RUnlock()
+func (g *GraphManager) modifyWay() {
 	g.Lock()
 	defer g.Unlock()
 
-	_, aNode := g.getNode(a)
-	_, bNode := g.getNode(b)
+	nodes := g.nodes
 
-	rmWay := aNode.getWay(bNode)
+	if len(nodes) < 2 {
+		return
+	}
 
-	aNode.removeWay(rmWay)
-	bNode.removeWay(rmWay)
+	s := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(s)
+
+	i_rand := r.Intn(len(nodes))
+	node := nodes[i_rand]
+
+	if len(node.ways) == 0 {
+		return
+	}
+
+	i_rand_2 := r.Intn(len(node.ways))
+	way := node.ways[i_rand_2]
+	i_rand_3 := r.Intn(10) + 1
+
+	way.weight = i_rand_3
+
+	fmt.Printf("Change way cost from node " + strconv.Itoa(node.number) + " to " + strconv.Itoa(way.getOther(node).number) + " new cost " + strconv.Itoa(i_rand_3) + "\n")
 }
 
-func (g *GraphManager) modifyWay(a int, b int, newWeight int) {
-	g.RUnlock()
-	g.Lock()
-	defer g.Unlock()
-
-	_, aNode := g.getNode(a)
-	_, bNode := g.getNode(b)
-
-	changeWay := aNode.getWay(bNode)
-
-	changeWay.weight = newWeight
-}
-
-func (g *GraphManager) getNodesAndLock() []*Node {
+func (g *GraphManager) findWay() {
 	g.RLock()
-	return g.nodes
-}
-
-func (g *GraphManager) justUnlock() {
-	g.RUnlock()
-}
-
-func (g *GraphManager) getCostAndUnlock(a int, b int, visited *[]*Node) int {
 	defer g.RUnlock()
 
-	return g.dfs(a, b, visited)
+	nodes := g.nodes
+
+	if len(nodes) < 2 {
+		return
+	}
+
+	s := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(s)
+
+	i_rand := r.Intn(len(nodes))
+	i_rand_2 := r.Intn(len(nodes))
+
+	for i_rand == i_rand_2 {
+		i_rand_2 = r.Intn(len(nodes))
+	}
+
+	visited := make([]*Node, 1)
+	cost := g.dfs(nodes[i_rand].number, nodes[i_rand_2].number, &visited)
+	
+	if cost == -1 {
+		fmt.Printf("Way not found\n")
+	} else {
+		fmt.Printf("\tWay from node " + strconv.Itoa(nodes[i_rand].number) + " to " + strconv.Itoa(nodes[i_rand_2].number) + " costs " + strconv.Itoa(cost) + "\n")
+	}
 }
 
 func (g *GraphManager) dfs(a int, b int, visited *[]*Node) int {

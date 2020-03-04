@@ -12,6 +12,7 @@ public class Main {
         gardener.start();
         nature.start();
         monitorConsole.start();
+        Thread.sleep(50);
         monitorFile.start();
 
         Thread.sleep(1000);

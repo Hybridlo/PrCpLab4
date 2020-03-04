@@ -14,7 +14,7 @@ public class MonitorFile extends Thread {
     @Override
     public void run() {
         while(!Thread.interrupted()) {
-            int [][] gardenState = {{}};
+            int [][] gardenState;
 
             try {
                 Thread.sleep(100);
@@ -27,6 +27,7 @@ public class MonitorFile extends Thread {
                 }
                 e.printStackTrace();
                 Thread.currentThread().interrupt();
+                continue;
             }
 
             try {
